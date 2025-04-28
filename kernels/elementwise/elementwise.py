@@ -4,13 +4,15 @@ from typing import Optional
 
 import torch
 from torch.utils.cpp_extension import load
+from kernels.elementwise.triton.elementwise_triton import *
+current_dir = os.path.dirname(os.path.abspath(__file__))
 
 torch.set_grad_enabled(False)
 
 # Load the CUDA kernel as a python module
 lib = load(
     name="elementwise_lib",
-    sources=["elementwise.cu"],
+    sources=[os.path.join(current_dir, "elementwise.cu")],
     extra_cuda_cflags=[
         "-O3",
         "-U__CUDA_NO_HALF_OPERATORS__",
@@ -23,6 +25,8 @@ lib = load(
     ],
     extra_cflags=["-std=c++17"],
 )
+
+
 
 
 def run_benchmark(
@@ -77,6 +81,7 @@ for S, K in SKs:
     a = torch.randn((S, K)).cuda().float().contiguous()
     b = torch.randn((S, K)).cuda().float().contiguous()
     c = torch.zeros_like(a).cuda().float().contiguous()
+    run_benchmark(elementwise_add_f32_kernel,a,b,"triton_f32",c)
     run_benchmark(lib.elementwise_add_f32, a, b, "f32", c)
     run_benchmark(lib.elementwise_add_f32x4, a, b, "f32x4", c)
     run_benchmark(partial(torch.add, out=c), a, b, "f32_th")
