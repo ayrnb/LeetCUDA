@@ -10,6 +10,7 @@
 
 #define WARP_SIZE 32
 #define INT4(value) (reinterpret_cast<int4 *>(&(value))[0])
+#define INT3(value) (reinterpret_cast<int3 *>(&(value))[0])
 #define FLOAT4(value) (reinterpret_cast<float4 *>(&(value))[0])
 
 // Histogram
@@ -32,6 +33,20 @@ __global__ void histogram_i32x4_kernel(int *a, int *y, int N) {
     atomicAdd(&(y[reg_a.y]), 1);
     atomicAdd(&(y[reg_a.z]), 1);
     atomicAdd(&(y[reg_a.w]), 1);
+  }
+}
+
+__global__ void histogram_i32x3_kernel(int *a, int *y, int N){
+  int idx = 3 * (blockIdx.x * blockDim.x + threadIdx.x);
+  if (idx+2<N){
+    int3 reg_a=INT3(a[idx]);
+    atomicAdd(&(y[reg_a.x]),1);
+    atomicAdd(&(y[reg_a.y]),1);
+    atomicAdd(&(y[reg_a.z]),1);
+  }else if(idx<N){
+    if (idx < N) atomicAdd(&(y[a[idx]]), 1);
+    if (idx + 1 < N) atomicAdd(&(y[a[idx + 1]]), 1);
+    if (idx + 2 < N) atomicAdd(&(y[a[idx + 2]]), 1);
   }
 }
 
@@ -74,8 +89,12 @@ __global__ void histogram_i32x4_kernel(int *a, int *y, int N) {
 
 TORCH_BINDING_HIST(i32, torch::kInt32, int, 1)
 TORCH_BINDING_HIST(i32x4, torch::kInt32, int, 4)
+TORCH_BINDING_HIST(i32x3, torch::kInt32, int, 3)
+
+
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   TORCH_BINDING_COMMON_EXTENSION(histogram_i32)
   TORCH_BINDING_COMMON_EXTENSION(histogram_i32x4)
+  TORCH_BINDING_COMMON_EXTENSION(histogram_i32x3)
 }
